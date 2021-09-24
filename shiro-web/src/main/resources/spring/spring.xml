@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:content="http://www.springframework.org/schema/context"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/util https://www.springframework.org/schema/util/spring-util.xsd">
+
+    <import resource="spring-dao.xml"/>
+    <import resource="spring-redis.xml"/>
+    <content:component-scan base-package="com.fanxs"/>
+
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="securityManager"/>
+        <!-- loginUrl认证提交地址，如果没有认证将会请求此地址进行认证，请求此地址将由formAuthenticationFilter进行表单认证 -->
+        <property name="loginUrl" value="login.html"/>
+        <!-- 认证成功统一跳转到first.action，建议不配置，shiro认证成功自动到上一个请求路径 -->
+        <!-- <property name="successUrl" value="/first.action"/> -->
+        <!-- 通过unauthorizedUrl指定没有权限操作时跳转页面-->
+        <property name="unauthorizedUrl" value="403.html"/>
+        <!-- 过虑器链定义，从上向下顺序执行，一般将/**放在最下边 -->
+        <property name="filterChainDefinitions">
+            <value>
+                <!--anon 不需要任何认证就可访问-->
+                /login.html = anon
+                /subLogin = anon
+<!--                /testRole = roles["admin"]-->
+<!--                &lt;!&ndash;/testRole1 = roles["admin", "admin1"]&ndash;&gt;-->
+
+                <!--authc 经过认证才可以访问相应路径-->
+                /testRole = rolesOr["admin"]
+                /testRole1 = rolesOr["admin", "admin1"]
+                /* = authc
+            </value>
+        </property>
+        <property name="filters">
+            <util:map>
+                <entry key="rolesOr" value-ref="rolesOrFilter"/>
+            </util:map>
+        </property>
+    </bean>
+
+    <bean class="com.fanxs.filter.RolesOrFilter" id="rolesOrFilter"/>
+
+    <!--构建SecurityManager对象-->
+    <bean class="org.apache.shiro.web.mgt.DefaultWebSecurityManager" id="securityManager">
+        <property name="realm" ref="realm"/>
+        <property name="sessionManager" ref="sessionManager"/>
+        <property name="cacheManager" ref="cacheManager"/>
+        <property name="rememberMeManager" ref="cookieRememberMeManager"/>
+    </bean>
+
+    <!--自定义Realm-->
+    <bean class="com.fanxs.shiro.realm.CustomRealm" id="realm">
+        <property name="credentialsMatcher" ref="credentialsMatcher"/>
+    </bean>
+
+    <bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher"
+          id="credentialsMatcher">
+        <property name="hashAlgorithmName" value="md5"/>
+        <property name="hashIterations" value="1"/>
+    </bean>
+
+    <!--使用自定义SessionManage-->
+    <bean class="com.fanxs.session.CustomSessionManage" id="sessionManager">
+        <property name="sessionDAO" ref="redisSessionDao"></property>
+    </bean>
+    <bean class="com.fanxs.session.RedisSessionDao" id="redisSessionDao"/>
+
+    <!--缓存相关-->
+    <bean class="com.fanxs.cache.RedisCacheManager" id="cacheManager"/>
+
+    <!--记住我 功能-->
+    <bean class="org.apache.shiro.web.mgt.CookieRememberMeManager" id="cookieRememberMeManager">
+        <property name="cookie" ref="cookie"/>
+    </bean>
+    <bean class="org.apache.shiro.web.servlet.SimpleCookie" id="cookie">
+        <constructor-arg value="rememberMe"/>
+        <property name="maxAge" value="604800"/> <!--七天-->
+    </bean>
+</beans>
